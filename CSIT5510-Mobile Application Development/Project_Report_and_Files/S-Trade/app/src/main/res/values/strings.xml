@@ -1,0 +1,85 @@
+<resources>
+    <string name="app_name">S-Trade</string>
+    <string name="text_latest">The Latest Items</string>
+    <string name="text_sellProcess">The Sell Process</string>
+    <string name="text_sellFAQ">The Sell FAQ</string>
+    <string name="text_search">Search</string>
+    <string name="text_newItem">New Item</string>
+    <string name="text_item">Item</string>
+    <string name="text_itemName">Item Name</string>
+    <string name="text_description">Description</string>
+    <string name="text_price">Price</string>
+    <string name="text_category">Category</string>
+    <string name="text_photo">Item Photo</string>
+    <string name="text_detail">Item Detail</string>
+    <string name="text_contact">Contact Information</string>
+    <string name="text_name">Contact Name</string>
+    <string name="text_phoneNum">Phone Number</string>
+    <string name="text_email">Email</string>
+    <string name="text_morePhoto">More Photos</string>
+    <string name="text_contactSeller">Contact Seller</string>
+    <string name="text_contactName">Name:</string>
+    <string name="text_contactPhone">Phone Number:</string>
+    <string name="text_contactEmail">Email:</string>
+    <string name="text_userName">Account</string>
+    <string name="text_password">Password</string>
+    <string name="text_ust">\u0040connect.ust.hk</string>
+    <string name="text_favorite">My Favorites</string>
+    <string name="text_sale">My Sales</string>
+    <string name="text_profile">My Profile</string>
+    <string name="text_HKD">HKD</string>
+    <string name="text_uname">Name</string>
+
+
+    <string name="page_find">Find</string>
+    <string name="page_sell">Sell</string>
+    <string name="page_user">Me</string>
+
+    <string name="button_startSell">Start to Sell</string>
+    <string name="button_signIn">Sign In</string>
+    <string name="button_signUp">Sign Up</string>
+    <string name="button_cancel">Cancel</string>
+    <string name="button_upload">Upload</string>
+    <string name="button_camera">Camera</string>
+    <string name="button_sell">Sell It</string>
+    <string name="button_call">Call</string>
+    <string name="button_sale">My Sales</string>
+    <string name="button_favorite">My Favorites</string>
+    <string name="button_edit">Edit Profile</string>
+    <string name="button_logOut">Log Out</string>
+    <string name="button_delete">Delete</string>
+    <string name="button_sold">Sold</string>
+    <string name="button_save">Save</string>
+    <string name="button_alipay">Pay By Alipay</string>
+    <string name="button_alipay2">Get By Alipay</string>
+
+
+    <string name="category_title">Select a Category</string>
+    <string-array name="category_list">
+        <item>All</item>
+        <item>Books</item>
+        <item>Clothing</item>
+        <item>Electronics</item>
+        <item>Games</item>
+        <item>Sports</item>
+        <item>Others</item>
+    </string-array>
+
+    <string-array name="category_listforsale">
+        <item>Books</item>
+        <item>Clothing</item>
+        <item>Electronics</item>
+        <item>Games</item>
+        <item>Sports</item>
+        <item>Others</item>
+    </string-array>
+
+    <string name="sort_title">Sort By</string>
+    <string-array name="sort_list">
+        <item>Latest</item>
+        <item>Oldest</item>
+        <item>Price \u21E1</item>
+        <item>Price \u21E3</item>
+    </string-array>
+
+</resources>

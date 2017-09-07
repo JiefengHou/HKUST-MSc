@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@color/cloud">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/page_user"
+            android:paddingBottom="10dp"
+            android:textAlignment="center"
+            android:textStyle="bold"
+            android:textSize="30sp"
+            android:textColor="@color/white"
+            android:background="@color/colorPrimaryDark" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@color/white"
+            android:layout_marginBottom="10dp"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:src="@drawable/image_user1"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:padding="5dp"
+                android:layout_marginTop="10dp"
+                android:layout_marginBottom="10dp" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="2"
+                android:layout_gravity="center_vertical"
+                android:orientation="vertical">
+                <TextView
+                    android:id="@+id/account"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="Sam"
+                    android:textSize="26dp"
+                    android:textColor="@color/black" />
+
+                <TextView
+                    android:id="@+id/userid"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="User ID:0000001"
+                    android:textSize="20dp"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginBottom="20dp"
+                    android:textColor="@color/grey2" />
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/button_favorite"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="1dp"
+            android:text="@string/button_favorite"
+            android:textAllCaps="false"
+            android:gravity="left|center_vertical"
+            android:textSize="20sp"
+            android:paddingTop="10dp"
+            android:paddingBottom="10dp"
+            android:paddingLeft="10dp"
+            android:paddingRight="-5dp"
+            android:background="@drawable/button_user"
+            android:drawableLeft="@drawable/icon_favorite"
+            android:drawableRight="@drawable/icon_right"
+            android:drawablePadding="10dp"/>
+
+        <Button
+            android:id="@+id/button_sale"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="1dp"
+            android:layout_marginBottom="1dp"
+            android:text="@string/button_sale"
+            android:textAllCaps="false"
+            android:gravity="left|center_vertical"
+            android:textSize="20sp"
+            android:paddingTop="10dp"
+            android:paddingBottom="10dp"
+            android:paddingLeft="10dp"
+            android:paddingRight="-5dp"
+            android:background="@drawable/button_user"
+            android:drawableLeft="@drawable/icon_sale"
+            android:drawableRight="@drawable/icon_right"
+            android:drawablePadding="10dp"/>
+
+        <Button
+            android:id="@+id/button_edit"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="1dp"
+            android:layout_marginBottom="1dp"
+            android:text="@string/button_edit"
+            android:textAllCaps="false"
+            android:gravity="left|center_vertical"
+            android:textSize="20sp"
+            android:paddingTop="10dp"
+            android:paddingBottom="10dp"
+            android:paddingLeft="10dp"
+            android:paddingRight="-5dp"
+            android:background="@drawable/button_user"
+            android:drawableLeft="@drawable/icon_edit"
+            android:drawableRight="@drawable/icon_right"
+            android:drawablePadding="10dp"/>
+
+        <Button
+            android:id="@+id/button_pay"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="1dp"
+            android:text="@string/button_alipay"
+            android:textAllCaps="false"
+            android:gravity="left|center_vertical"
+            android:textSize="20sp"
+            android:paddingTop="10dp"
+            android:paddingBottom="10dp"
+            android:paddingLeft="10dp"
+            android:paddingRight="-5dp"
+            android:background="@drawable/button_user"
+            android:drawableLeft="@drawable/icon_alipay"
+            android:drawableRight="@drawable/icon_right"
+            android:drawablePadding="10dp"/>
+
+        <Button
+            android:id="@+id/button_getpay"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="1dp"
+            android:layout_marginBottom="10dp"
+            android:text="@string/button_alipay2"
+            android:textAllCaps="false"
+            android:gravity="left|center_vertical"
+            android:textSize="20sp"
+            android:paddingTop="10dp"
+            android:paddingBottom="10dp"
+            android:paddingLeft="10dp"
+            android:paddingRight="-5dp"
+            android:background="@drawable/button_user"
+            android:drawableLeft="@drawable/icon_alipay2"
+            android:drawableRight="@drawable/icon_right"
+            android:drawablePadding="10dp"/>
+
+        <Button
+            android:id="@+id/button_shake"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:layout_marginBottom="10dp"
+            android:text="Shake"
+            android:textAllCaps="false"
+            android:gravity="left|center_vertical"
+            android:textSize="20sp"
+            android:paddingTop="10dp"
+            android:paddingBottom="10dp"
+            android:paddingLeft="10dp"
+            android:paddingRight="-5dp"
+            android:background="@drawable/button_user"
+            android:drawableLeft="@drawable/icon_shake"
+            android:drawableRight="@drawable/icon_right"
+            android:drawablePadding="10dp"/>
+
+        <Button
+            android:id="@+id/button_logOut"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:layout_marginBottom="20dp"
+            android:text="@string/button_logOut"
+            android:textAllCaps="false"
+            android:gravity="center"
+            android:textSize="20sp"
+            android:paddingTop="10dp"
+            android:paddingBottom="10dp"
+            android:background="@drawable/button_user" />
+    </LinearLayout>
+</ScrollView>
