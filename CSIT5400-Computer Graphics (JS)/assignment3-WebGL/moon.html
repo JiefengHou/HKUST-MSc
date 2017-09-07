@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Moon Rendering</title>
+    <script src="twgl-full.js"></script>
+    <script src="trackball.js"></script>
+    <script src="matrixstack.js"></script>
+    <script id="vertex-shader" type="x-shader/x-vertex">
+    precision mediump int;
+
+    // This are the common attribute variables
+    attribute vec3 a_position;
+    attribute vec3 a_normal;
+
+    // ** For stage 1 onwards
+    // The incoming texture coordinates
+    attribute vec2 a_texcoord;
+
+    // ** For stage 2 onwards
+    // The incoming tangent vector
+    attribute vec3 a_tangent;
+
+    // The transformation matrices
+    uniform mat4 u_ModelViewMatrix;
+    uniform mat4 u_NormalMatrix;
+    uniform mat4 u_ModelViewProjMatrix;
+
+    // The varying variables for Phong shading
+    varying vec3 v_Vertex;
+    varying vec3 v_Normal;
+
+    // ** For stage 1 onwards
+    // The outgoing texture coordinates
+    varying vec2 v_TexCoord;
+
+    // ** For stage 2 onwards
+    // The outgoing TBN transformation matrix
+    varying mat3 v_TBNMatrix;
+
+    // This contains the current display stage (0, 1, 2, 3) of the Moon
+    uniform int u_Stage;
+
+    void main() {
+        /* Calculate the eye coordinates */
+        v_Vertex = (u_ModelViewMatrix * vec4(a_position, 1)).xyz;
+        v_Normal = normalize(mat3(u_NormalMatrix) * a_normal);
+
+        // ** For stage 1 onwards
+        // You will need to output the texture coordinates
+        v_TexCoord = a_texcoord;
+
+        // ** For stage 2 onwards
+        // You will need to find:
+        // 1. The T, B and N vectors
+        // 2. The T, B and N vectors in the eye space
+        // 3. The TBN matrix
+        vec3 N = normalize(mat3(u_NormalMatrix) * a_normal);
+        vec3 T = normalize(mat3(u_NormalMatrix) * a_tangent);
+        T = normalize(T - dot(T, N) * N);
+        vec3 B = cross(N, T);
+        v_TBNMatrix = mat3(T, B, N);
+
+        /* Output the vertex position in clip space */
+        gl_Position = u_ModelViewProjMatrix * vec4(a_position, 1);
+    }
+    </script>
+    <script id="fragment-shader" type="x-shader/x-fragment">
+    precision mediump float;
+    precision mediump int;
+
+    // The light parameters
+    uniform vec3 u_WorldAmbient;
+    uniform vec3 u_LightColor;
+    uniform vec3 u_LightPosition;
+
+    // The material parameters
+    uniform vec3 u_MaterialAmbient;
+    uniform vec3 u_MaterialDiffuse;
+    uniform vec3 u_MaterialSpecular;
+    uniform float u_MaterialShininess;
+
+    // The incoming varying variables for Phong shading
+    varying vec3 v_Vertex;
+    varying vec3 v_Normal;
+
+    // ** For stage 1 onwards
+    // The incoming texture coordinates
+    varying vec2 v_TexCoord;
+
+    // ** For stage 2 onwards
+    // The incoming TBN matrix
+    varying mat3 v_TBNMatrix;
+
+    // ** For stage 1 onwards
+    // The texture map containing the Moon texture
+    uniform sampler2D u_ColorMap;
+
+    // ** For stage 2 onwards
+    // The texture map containing the normal map
+    uniform sampler2D u_NormalMap;
+
+    // ** For stage 3 onwards
+    // The texture map containing the face texture
+    uniform sampler2D u_FaceMap;
+
+    // This contains the current display stage (0, 1, 2, 3) of the Moon
+    uniform int u_Stage;
+
+    void main() {
+        /* Find the relevant vectors for lighting calculation in eye space */
+        vec3 lightDir = normalize(u_LightPosition - v_Vertex.xyz);
+        vec3 viewDir = normalize(-v_Vertex.xyz);
+        vec3 normal = normalize(v_Normal);
+
+        // ** For stage 2 onwards
+        // You will need to retrieve and transform the normal, i.e:
+        // 1. Retrieve and restore the normal from the normal map
+        // 2. Transform the normal using the TBN matrix
+        if (u_Stage == 2 || u_Stage == 3) {
+            normal = texture2D(u_NormalMap, v_TexCoord).rgb;
+            normal = normalize(normal * 2.0 - 1.0);
+            normal = normalize(v_TBNMatrix * normal);
+        } 
+
+        /* Find the ambient component */
+        vec3 ambient = u_MaterialAmbient * u_WorldAmbient;
+
+        /* Find the diffuse component */
+        vec3 diffuse = vec3(0);
+        float dotProduct = dot(lightDir, normal);
+        if (dotProduct > 0.0) diffuse = u_MaterialDiffuse * dotProduct;
+
+        /* Find the specular component */
+        vec3 specular = vec3(0);
+        if (dot(lightDir, normal) > 0.0) {
+            vec3 halfVector = normalize(lightDir + viewDir);
+            dotProduct = dot(halfVector, normal);
+            if (dotProduct > 0.0) {
+                specular = u_MaterialSpecular *
+                           pow(dotProduct, u_MaterialShininess);
+            }
+        }
+
+        vec3 color = ambient + u_LightColor * (diffuse + specular);
+
+        // ** For stage 1 onwards
+        // The fragment colour will be assigned to different combinations of
+        // colours based on the current stage of the Moon
+
+        /* Assign the fragment colour */
+        gl_FragColor = vec4(color, 1);
+        if (u_Stage == 1 || u_Stage == 2) {
+            gl_FragColor *= texture2D(u_ColorMap, v_TexCoord);
+        }
+
+        if (u_Stage == 3) {
+            if ((v_TexCoord[0]>0.4 && v_TexCoord[0]<0.6) && 
+                (v_TexCoord[1]>0.4 && v_TexCoord[1]<0.6)) {
+                gl_FragColor *= texture2D(u_FaceMap,
+                    vec2((v_TexCoord[0]-0.4)*5.0,(v_TexCoord[1]-0.4)*5.0));
+            } else {
+                gl_FragColor *= texture2D(u_ColorMap, v_TexCoord);
+            }
+        }
+    }
+    </script>
+    <script>
+    var v3 = twgl.v3, m4 = twgl.m4, primitives = twgl.primitives;
+
+    var gl;
+    var programInfo;
+    var sphere;
+    var stage = 0;
+    var projMatrix, viewMatrix;
+    var uniforms = {};
+    var moonTexture = true;
+    var normalTexture = true;
+    var meTexture = true;
+
+    var mouseInfo = {
+        motion: false,
+        pos: [0, 0],
+        quat: trackball.create(0, 0, 0, 0),
+        eye: [0, 0, 1000]
+    }
+
+    var angle = 0;
+    var stop = false;
+    var lightSwitch = 0;
+    var interval;
+    var increment = 5;
+    var lightPosition = [0,0,0];
+
+    function createSphereTangents(arrays, subdivisionsAxis, subdivisionsHeight) {
+        /* Calculate the tangents of each sphere position */
+        var numVertices = (subdivisionsAxis + 1) * (subdivisionsHeight + 1);
+        var tangents = primitives.createAugmentedTypedArray(3, numVertices);
+        for (var y = 0; y <= subdivisionsHeight; y++) {
+            for (var x = 0; x <= subdivisionsAxis; x++) {
+                var u = x / subdivisionsAxis;
+                var v = y / subdivisionsHeight;
+                var theta = 2 * Math.PI * u;
+                var phi = Math.PI * v;
+                var sinTheta = Math.sin(theta);
+                var cosTheta = Math.cos(theta);
+                var sinPhi = Math.sin(phi);
+                var cosPhi = Math.cos(phi);
+                var ux = cosTheta * sinPhi;
+                var uz = sinTheta * sinPhi;
+                if (ux * uz < 0.001)
+                    tangents.push(sinTheta, 0, -cosTheta);
+                else
+                    tangents.push(uz, 0, -ux);
+            }
+        }
+        arrays.tangent = tangents;
+    }
+
+    function initMouseEvents() {
+        /* Set up the mouse events for the canvas area */
+        gl.canvas.addEventListener('mousedown', function(event) {
+            if (event.button == 0) {
+                var rect = gl.canvas.getBoundingClientRect();
+                mouseInfo.pos = [
+                    2 * (event.clientX - rect.left) / gl.canvas.width - 1,
+                    2 * (event.clientY - rect.top) / gl.canvas.height - 1,
+                ];
+                if (event.shiftKey)
+                    mouseInfo.motion = "pan";
+                else if (event.ctrlKey)
+                    mouseInfo.motion = "zoom";
+                else
+                    mouseInfo.motion = "trackball";
+            }
+        });
+        gl.canvas.addEventListener('mouseup', function(event) {
+            if (event.button == 0) mouseInfo.motion = false;
+        });
+        gl.canvas.addEventListener('mouseout', function(event) {
+            mouseInfo.motion = false;
+        });
+        gl.canvas.addEventListener('mousemove', function(event) {
+            if (mouseInfo.motion) {
+                var rect = gl.canvas.getBoundingClientRect();
+                var pos = [
+                    2 * (event.clientX - rect.left) / gl.canvas.width - 1,
+                    2 * (event.clientY - rect.top) / gl.canvas.height - 1,
+                ];
+                switch (mouseInfo.motion) {
+                case "trackball":
+                    var dq = trackball.create(
+                        mouseInfo.pos[0], -mouseInfo.pos[1], pos[0], -pos[1]);
+                    mouseInfo.quat = trackball.addQuats(dq, mouseInfo.quat);
+                    break;
+                case "pan":
+                    mouseInfo.eye[0] -= (pos[0] - mouseInfo.pos[0]) * gl.canvas.width / 2;
+                    mouseInfo.eye[1] += (pos[1] - mouseInfo.pos[1]) * gl.canvas.height / 2;
+                    break;
+                case "zoom":
+                    mouseInfo.eye[2] += (pos[1] - mouseInfo.pos[1]) * gl.canvas.height / 2;
+                }
+                mouseInfo.pos = pos;
+            }
+        });
+        
+    }
+
+    function initKeyEvents() {
+        /* Set up the key events */
+        document.addEventListener('keydown', function(event) {
+            if(event.keyCode == 32) {
+                if (!stop) {
+                    startAnimation();
+                } else {
+                    stopAnimation()
+                }
+                stop = !stop;
+            }            
+            switch (event.key) {
+            case "0":   // No map
+                stage = 0;
+                break;
+            case "1":   // Moon texture
+                stage = 1;
+                break;
+            case "2":   // Normal map
+                stage = 2;
+                break;
+            case "3":   // Face texture
+                stage = 3;
+                break;
+            case "l":   // light switch
+                lightSwitch = !lightSwitch;
+                break;
+            }
+        });
+    }
+
+    function startAnimation() {
+        lightSwitch = true;
+        interval = setInterval(function() {
+            angle += increment;
+            if(Math.abs(angle) == 360) {
+                angle = 0;
+            }          
+        },50);
+    }
+
+    function stopAnimation() {
+        clearInterval(interval);
+        angle = 0;
+    }
+
+    function initWebGL() {
+        /* Get the WebGL context */
+        gl = twgl.getWebGLContext(document.getElementById("webgl_canvas"));
+
+        /* Initialize the WebGL environment */
+        if (gl) {
+            gl.clearColor(0, 0, 0, 1);
+
+            gl.enable(gl.DEPTH_TEST);
+            gl.depthFunc(gl.LEQUAL);
+
+            /* Create the programs */
+            programInfo = twgl.createProgramInfo(gl,
+                              ["vertex-shader", "fragment-shader"]);
+            gl.useProgram(programInfo.program);
+
+            /* Create the primitive */
+            twgl.setDefaults({ attribPrefix: 'a_' });
+            var arrays = primitives.createSphereVertices(500, 50, 50);
+            createSphereTangents(arrays, 50, 50);
+            sphere = twgl.createBufferInfoFromArrays(gl, arrays); 
+
+            // ** For stage 1 onwards
+            // You need to create all relevant textures here
+            moonTexture = twgl.createTexture(gl, { src: "colormap.png", flipY: true });
+            normalTexture = twgl.createTexture(gl, { src: "normalmap.png", flipY: true });
+            meTexture = twgl.createTexture(gl, { src: "me.png", flipY: true });
+
+            /* Initialize the mouse and keys */
+            initMouseEvents(); 
+            initKeyEvents();
+
+            /* Clear the matrix stack */
+            matrixstack.clear();
+
+            /* Update the canvas content */
+            window.requestAnimationFrame(render);
+        }
+    }
+
+    function setupMatrices() {
+        /* Compute the current matrices */
+        var modelMatrix = matrixstack.top();
+        var modelViewMatrix = m4.multiply(viewMatrix, modelMatrix);
+        var normalMatrix = m4.inverse(m4.transpose(modelViewMatrix));
+        var modelViewProjMatrix = m4.multiply(projMatrix, modelViewMatrix);
+
+        /* Set up the uniforms */
+        uniforms.u_ModelViewMatrix = modelViewMatrix;
+        uniforms.u_NormalMatrix = normalMatrix;
+        uniforms.u_ModelViewProjMatrix = modelViewProjMatrix;
+    }
+
+    function setupLight(ambient, color, position) {
+        uniforms.u_WorldAmbient = ambient;
+        uniforms.u_LightColor = color;
+        uniforms.u_LightPosition = position;
+    }
+
+    function setupMaterial(ambient, diffuse, specular, shininess) {
+        uniforms.u_MaterialAmbient  = ambient;
+        uniforms.u_MaterialDiffuse  = diffuse;
+        uniforms.u_MaterialSpecular = specular;
+        uniforms.u_MaterialShininess = shininess;
+    }
+
+    function drawMoon() {
+        matrixstack.push();
+
+        /* Set up matrices and uniforms */
+        setupMatrices();
+        setupMaterial([0.8, 0.8, 0.75], [0.8, 0.8, 0.75], [0, 0, 0], 1);
+
+        // ** For stage 1 onwards
+        // You need to pass the textures as uniform to the shader appropriately
+        uniforms.u_ColorMap = moonTexture;
+        uniforms.u_NormalMap = normalTexture;
+        uniforms.u_FaceMap = meTexture;
+
+        /* Pass the current stage of the Moon to the shader */
+        uniforms.u_Stage = stage;
+        twgl.setUniforms(programInfo, uniforms);
+
+        /* Draw a sphere */
+        twgl.setBuffersAndAttributes(gl, programInfo, sphere);
+        twgl.drawBufferInfo(gl, sphere);
+
+        matrixstack.pop();
+    }
+
+    function render() {
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        /* Set up the perspective projection */
+        projMatrix = m4.perspective(60 * Math.PI / 180,
+                            gl.canvas.width / gl.canvas.height, 0.5, 5000);
+
+        /* Set up the viewing transformation */
+        var lookAt = m4.lookAt(mouseInfo.eye,
+                               [mouseInfo.eye[0], mouseInfo.eye[1], 0],
+                               [0, 1, 0]);
+        viewMatrix = m4.multiply(m4.inverse(lookAt),
+                                 trackball.buildMatrix(mouseInfo.quat));
+
+        // ** For lighting
+        // You need to change the light position to include
+        // the distant light source, i.e.:
+        // 1. Transform the light position with the view matrix
+        // 2. Rotate the light position during animation, if required
+        if (lightSwitch) {
+            lightPosition = m4.transformPoint(viewMatrix,
+                [10000*Math.cos(angle * Math.PI/180), 0, -10000*Math.sin(angle * Math.PI/180)]);
+        } else {
+            lightPosition = [0,0,0];
+        }
+
+        /* Set up the light */
+        setupLight([0.1, 0.1, 0.1], [1, 1, 1], lightPosition);
+
+        /* Draw the objects */
+        drawMoon();
+
+        window.requestAnimationFrame(render);
+    }
+    </script>
+</head>
+<body onload="initWebGL()">
+    <canvas id="webgl_canvas" width="640" height="480"></canvas>
+</body>
+</html>

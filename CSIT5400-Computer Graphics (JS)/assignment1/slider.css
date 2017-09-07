@@ -1,0 +1,83 @@
+/* Based on
+ * http://brennaobrien.com/blog/2014/05/style-input-type-range-in-every-browser.html
+ */
+input[type=range] {
+    /*removes default webkit styles*/
+    -webkit-appearance: none;
+    
+    /*required for proper track sizing in FF*/
+    width: 100px;
+    height: 10px;
+}
+input[type=range]::-webkit-slider-runnable-track {
+    width: 100px;
+    height: 2px;
+    background: #ddd;
+    border: none;
+}
+input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    border: none;
+    height: 10px;
+    width: 10px;
+    border-radius: 2px;
+    background: #888;
+    margin-top: -4px;
+}
+input[type=range]:focus {
+    outline: none;
+}
+input[type=range]:focus::-webkit-slider-runnable-track {
+    background: #ccc;
+}
+
+input[type=range]::-moz-range-track {
+    width: 100px;
+    height: 2px;
+    background: #ddd;
+    border: none;
+}
+input[type=range]::-moz-range-thumb {
+    border: none;
+    height: 10px;
+    width: 10px;
+    border-radius: 2px;
+    background: #888;
+}
+
+/*hide the outline behind the border*/
+input[type=range]:-moz-focusring{
+    outline: 1px solid white;
+    outline-offset: -1px;
+}
+
+input[type=range]::-ms-track {
+    width: 100px;
+    height: 2px;
+    
+    /*remove bg colour from the track, we'll use ms-fill-lower and ms-fill-upper instead */
+    background: transparent;
+    
+    /*remove default tick marks*/
+    color: transparent;
+}
+input[type=range]::-ms-fill-lower {
+    background: #ccc;
+}
+input[type=range]::-ms-fill-upper {
+    background: #ccc;
+}
+input[type=range]::-ms-thumb {
+    border: none;
+    height: 10px;
+    width: 10px;
+    border-radius: 2px;
+    background: #888;
+    margin-top: 0;
+}
+input[type=range]:focus::-ms-fill-lower {
+    background: #ccc;
+}
+input[type=range]:focus::-ms-fill-upper {
+    background: #ccc;
+}

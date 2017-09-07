@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>COMICification</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <link rel="stylesheet" type="text/css" href="slider.css">
+    <script src="imageproc.js"></script>
+    <script src="dither.js"></script>
+    <script src="grayscale.js"></script>
+    <script src="gaussian.js"></script>
+    <script src="sobel.js"></script>
+    <script src="kuwahara.js"></script>
+    <script src="canny.js"></script>
+    <script src="comicpalette.js"></script>
+    <script>
+    /* Init the page with the imageproc javascript module */
+    function initPage() {
+        imageproc.init("source", "result", "source_image");
+    }
+
+    /* Set up the filtering operation */
+    imageproc.operation = function(sourceImage, resultImage, params) {
+        /* Get the parameters first */
+        var display = {
+            outline: params["display_outline"],
+            shade:   params["display_shade"],
+            colour:  params["display_colour"]
+        };
+        var canny = {
+            size:       parseInt(params["canny_size"]),
+            threshold1: parseInt(params["canny_threshold1"]),
+            threshold2: parseInt(params["canny_threshold2"]) 
+        };
+        var dither = {
+            pattern: params["dither_pattern"]
+        };
+        var kuwahara = {
+            size: parseInt(params["kuwahara_size"])
+        };
+        var comic = {
+            saturation: parseInt(params["comic_saturation"]),
+            kuwahara:   params["comic_kuwahara"]
+        };
+
+        /* Apply Canny edge detection */
+        var cannyImage;
+        if (display.outline == "canny") {
+            cannyImage = imageproc.createBuffer(sourceImage);
+            imageproc.cannyEdge(sourceImage, cannyImage, canny.size,
+                                canny.threshold1, canny.threshold2);
+        }
+
+        /* Apply dithering */
+        var ditheredImage;
+        if (display.shade == "dither") {
+            var matrix = [
+                [1, 3],
+                [4, 2]
+            ];
+            var levels = 5;
+
+            ditheredImage = imageproc.createBuffer(sourceImage);
+            imageproc.dither(sourceImage, ditheredImage, matrix, levels);
+        }
+
+        /* Apply Kuwahara filter */
+        var kuwaharaImage;
+        if (display.colour == "kuwahara" ||
+            display.colour == "comic" && comic.kuwahara == "yes") {
+            kuwaharaImage = imageproc.createBuffer(sourceImage);
+            imageproc.kuwahara(sourceImage, kuwaharaImage, kuwahara.size);
+        }
+
+        /* Convert the image to use comic palette */
+        var comicImage;
+        if (display.colour == "comic") {
+            comicImage = imageproc.createBuffer(sourceImage);
+            if (comic.kuwahara == "no")
+                imageproc.useComicPalette(sourceImage, comicImage,
+                                          comic.saturation);
+            else
+                imageproc.useComicPalette(kuwaharaImage, comicImage,
+                                          comic.saturation);
+        }
+
+        /* Display the image in layers: colour + shade + outline */
+
+        /* Display the colour first */
+        switch (display.colour) {
+        case "kuwahara":
+            /* Show Kuwahara colouring */
+            for (var i = 0; i < resultImage.data.length; i+=4) {
+                resultImage.data[i]     = kuwaharaImage.data[i];
+                resultImage.data[i + 1] = kuwaharaImage.data[i + 1];
+                resultImage.data[i + 2] = kuwaharaImage.data[i + 2];
+            }
+            break;
+        case "comic":
+            /* Use comic palette */
+            for (var i = 0; i < resultImage.data.length; i+=4) {
+                resultImage.data[i]     = comicImage.data[i];
+                resultImage.data[i + 1] = comicImage.data[i + 1];
+                resultImage.data[i + 2] = comicImage.data[i + 2];
+            }
+            break;
+        default:
+            /* Show white background for no colouring */
+            for (var i = 0; i < resultImage.data.length; i+=4) {
+                resultImage.data[i]     =
+                resultImage.data[i + 1] =
+                resultImage.data[i + 2] = 255;
+            }
+        }
+
+        /* Display the shade */
+        switch (display.shade) {
+        case "dither":
+            /* Show ordered dithering */
+            for (var i = 0; i < resultImage.data.length; i+=4) {
+                resultImage.data[i]     = ditheredImage.data[i];
+                resultImage.data[i + 1] = ditheredImage.data[i + 1];
+                resultImage.data[i + 2] = ditheredImage.data[i + 2];
+            }
+            break;
+        }
+
+        /* Display the outlines */
+        switch (display.outline) {
+        case "canny":
+            /* Show Canny edge result */
+            for (var i = 0; i < resultImage.data.length; i+=4) {
+                resultImage.data[i]     = cannyImage.data[i];
+                resultImage.data[i + 1] = cannyImage.data[i + 1];
+                resultImage.data[i + 2] = cannyImage.data[i + 2];
+            }
+            break;
+        }
+    }
+    imageproc.paramIds = [
+        "display_outline", "display_shade", "display_colour",
+        "canny_size", "canny_threshold1", "canny_threshold2",
+        "dither_pattern",
+        "kuwahara_size",
+        "comic_saturation", "comic_kuwahara"
+    ];
+    </script>
+</head>
+<body onload="initPage()">
+    <h1>COMICification</h1>
+
+    <!-- The Image Canvas -->
+    <table>
+        <tr>
+            <td>Source Image:
+                <!-- The Source Image Selection -->
+                <select id="source_image"
+                        onchange="imageproc.updateSourceImage()">
+                    <option value="hkust.png">HKUST</option>
+                    <option value="batman.png">Batman</option>
+                    <option value="spiderman.png">Spiderman</option>
+                    <option value="superman.png">Superman</option>
+                    <option value="trooper.png">Stormtroopers</option>
+                    <option value="grayscale.png">Grayscale Test</option>
+                </select>
+            </td>
+            <td>Result Image:</td>
+        </tr>
+        <tr>
+            <td>
+                <!-- The Source Image Canvas -->
+                <canvas id="source" width="400" height="300"></canvas>
+            </td>
+            <td>
+                <!-- The Result Image Canvas -->
+                <canvas id="result" width="400" height="300"></canvas>
+            </td>
+        </tr>
+    </table>
+
+    <!-- The Controls Area -->
+    <table>
+        <tr>
+            <td>Outlines:
+                <!-- The Outline Processing -->
+                <select id="display_outline">
+                    <option value="none">None</option>
+                    <option value="canny">Canny Edge Detection</option>
+                </select>
+            </td>
+            <td>
+                Shades:
+                <!-- The Dithering Processing -->
+                <select id="display_shade">
+                    <option value="none">None</option>
+                    <option value="dither">Ordered Dithering</option>
+                </select>
+            </td>
+            <td>
+                Colours:
+                <!-- The Colouring Processing -->
+                <select id="display_colour">
+                    <option value="none">None</option>
+                    <option value="comic">Comic Colours</option>
+                    <option value="kuwahara">Kuwahara Filter</option>
+                </select>
+            </td>
+            <td>
+                <!-- The Apply Button -->
+                <button onclick="imageproc.apply()">COMICify!</button>
+            </td>
+        </tr>
+    </table>
+
+    <!-- The Settings Area -->
+    <table>
+        <tr>
+            <th colspan="2">Canny Edge Detection</th>
+            <th colspan="2">Ordered Dithering</th>
+            <th colspan="2">Comic Colours</th>
+        </tr>
+        <tr>
+            <td>Gaussian Size:</td>
+            <td>
+                <!-- The Size of the Gaussian Kernel -->
+                <input id="canny_size" type="range"
+                       min="3" max="9" step="2" value="3"
+                       oninput="imageproc.updateInputValue(this)"
+                       onchange="imageproc.updateInputValue(this)">
+                <span id="canny_size_value">3</span>
+            </td>
+            <td>Pattern:</td>
+            <td>
+                <!-- The Pattern of the Dithering -->
+                <select id="dither_pattern">
+                    <option value="lines">Lines</option>
+                    <option value="diamonds">Diamond Checkers</option>
+                </select>
+            </td>
+            <td>Saturation:</td>
+            <td>
+                <!-- The Multiplicative Factor of Saturation -->
+                <input id="comic_saturation" type="range"
+                       min="1" max="10" value="2"
+                       oninput="imageproc.updateInputValue(this)"
+                       onchange="imageproc.updateInputValue(this)">
+                <span id="comic_saturation_value">2</span>
+            </td>
+        </tr>
+        <tr>
+            <td>Strong Threshold:</td>
+            <td>
+                <!-- The Strong Threshold Value -->
+                <input id="canny_threshold1" type="range"
+                       min="0" max="255" value="128"
+                       oninput="imageproc.updateInputValue(this)"
+                       onchange="imageproc.updateInputValue(this)">
+                <span id="canny_threshold1_value">128</span>
+            </td>
+            <th colspan="2">Kuwahara Filter</th>
+            <td>Use Kuwahara:</td>
+            <td>
+                <!-- Use Kuwahara Before Using Comic Palette or Not -->
+                <select id="comic_kuwahara">
+                    <option value="no">No</option>
+                    <option value="yes">Yes</option>
+                </select>
+            </td>
+        </tr>
+        <tr>
+            <td>Weak Threshold:</td>
+            <td>
+                <!-- The Weak Threshold Value -->
+                <input id="canny_threshold2" type="range"
+                       min="0" max="255" value="64"
+                       oninput="imageproc.updateInputValue(this)"
+                       onchange="imageproc.updateInputValue(this)">
+                <span id="canny_threshold2_value">64</span>
+            </td>
+            <td>Filter Size:</td>
+            <td>
+                <!-- The Size of the Kuwahara Filter -->
+                <input id="kuwahara_size" type="range"
+                       min="5" max="13" step="4" value="5"
+                       oninput="imageproc.updateInputValue(this)"
+                       onchange="imageproc.updateInputValue(this)">
+                <span id="kuwahara_size_value">5</span>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>A Robot Arm</title>
+    <style>
+    #container { position: relative; }
+    #instructions {
+        position: absolute;
+        top: 0;
+        left: 0;
+        padding: 10px;
+        color: white;
+        font-family: Helvetica, Arial, sans-serif;
+        font-size: 12px;
+        line-height: 16px;
+    }
+    </style>
+    <script src="twgl-full.js"></script>
+    <script src="trackball.js"></script>
+    <script src="matrixstack.js"></script>
+    <script id="vertex-shader" type="x-shader/x-vertex">
+    attribute vec3 a_position;
+    attribute vec3 a_normal;
+
+    uniform vec3 u_Color;
+    uniform mat4 u_ModelViewMatrix;
+    uniform mat4 u_NormalMatrix;
+    uniform mat4 u_ModelViewProjMatrix;
+
+    varying vec3 v_Color;
+
+    void main() {
+        vec4 eyeCoord = u_ModelViewMatrix * vec4(a_position, 1);
+        vec3 viewDir = normalize(-eyeCoord.xyz);
+        vec3 normal = normalize(mat3(u_NormalMatrix) * a_normal);
+        v_Color = u_Color * max(dot(viewDir, normal), 0.0);
+
+        gl_Position = u_ModelViewProjMatrix * vec4(a_position, 1);
+    }
+    </script>
+    <script id="fragment-shader" type="x-shader/x-fragment">
+    precision mediump float;
+
+    varying vec3 v_Color;
+
+    void main() {
+        gl_FragColor = vec4(v_Color, 1);
+    }
+    </script>
+    <script>
+    var v3 = twgl.v3, m4 = twgl.m4, primitives = twgl.primitives;
+
+    var gl;
+    var programInfo;
+    var cube, cylinder;
+    var projMatrix, viewMatrix;
+    var uniforms = {};
+
+    var mouseInfo = {
+        motion: false,
+        pos: [0, 0],
+        quat: trackball.create(0, 0, 0, 0),
+        eye: [0, 50, 100]
+    }
+
+    var angleRobot = 0;
+    var angleHead = 0;
+    var angleLeftArm = 0;
+    var angleRightArm = 0;
+    var angleLeftLeg = 0;
+    var angleRightLeg = 0;
+    var stop = false;
+    var interval;
+    var increment = 5;
+
+    function initMouseEvents() {
+        /* Set up the mouse events for the canvas area */
+        gl.canvas.addEventListener('mousedown', function(event) {
+            if (event.button == 0) {
+                var rect = gl.canvas.getBoundingClientRect();
+                mouseInfo.pos = [
+                    2 * (event.clientX - rect.left) / gl.canvas.width - 1,
+                    2 * (event.clientY - rect.top) / gl.canvas.height - 1,
+                ];
+                if (event.shiftKey)
+                    mouseInfo.motion = "pan";
+                else if (event.ctrlKey)
+                    mouseInfo.motion = "zoom";
+                else
+                    mouseInfo.motion = "trackball";
+            }
+        });
+        gl.canvas.addEventListener('mouseup', function(event) {
+            if (event.button == 0) mouseInfo.motion = false;
+        });
+        gl.canvas.addEventListener('mouseout', function(event) {
+            mouseInfo.motion = false;
+        });
+        gl.canvas.addEventListener('mousemove', function(event) {
+            if (mouseInfo.motion) {
+                var rect = gl.canvas.getBoundingClientRect();
+                var pos = [
+                    2 * (event.clientX - rect.left) / gl.canvas.width - 1,
+                    2 * (event.clientY - rect.top) / gl.canvas.height - 1,
+                ];
+                switch (mouseInfo.motion) {
+                case "trackball":
+                    var dq = trackball.create(
+                        mouseInfo.pos[0], -mouseInfo.pos[1], pos[0], -pos[1]);
+                    mouseInfo.quat = trackball.addQuats(dq, mouseInfo.quat);
+                    break;
+                case "pan":
+                    mouseInfo.eye[0] -= (pos[0] - mouseInfo.pos[0]) * gl.canvas.width / 2;
+                    mouseInfo.eye[1] += (pos[1] - mouseInfo.pos[1]) * gl.canvas.height / 2;
+                    break;
+                case "zoom":
+                    mouseInfo.eye[2] += (pos[1] - mouseInfo.pos[1]) * gl.canvas.height / 2;
+                }
+                mouseInfo.pos = pos;
+            }
+        });
+        
+    }
+
+    function initKeyEvents() {
+        /* Set up the key events to control the spaceship */
+        document.addEventListener('keydown', function(event) {
+            if(event.keyCode == 32) {
+                if (!stop) {
+                    startAnimation();
+                } else {
+                    stopAnimation()
+                }
+                stop = !stop;
+            }
+            switch (event.key) {
+            case ",": angleRobot -= 5; break;
+            case ".": angleRobot += 5; break;   
+            case "w": angleHead -= 5; break;
+            case "e": angleHead += 5; break; 
+            case "a": angleLeftArm -= 5; break;
+            case "s": angleLeftArm += 5; break;
+            case "d": angleRightArm -= 5; break;
+            case "f": angleRightArm += 5; break;    
+            case "z": angleLeftLeg -= 5; break;
+            case "x": angleLeftLeg += 5; break; 
+            case "c": angleRightLeg -= 5; break;
+            case "v": angleRightLeg += 5; break;   
+            case "r": stopAnimation(); 
+                      stop = !stop; break; 
+            }
+        });
+    }
+
+    function startAnimation() {
+        angleLeftArm = 0;
+        angleRightArm = 0;
+        angleLeftLeg = 0;
+        angleRightLeg = 0;
+        interval = setInterval(function() {
+            angleLeftArm -= increment;
+            angleRightLeg -= increment;
+            angleRightArm += increment;
+            angleLeftLeg += increment;
+            if(Math.abs(angleLeftArm) == 45) {
+                increment = -increment;
+            }          
+        },50);
+    }
+
+    function stopAnimation() {
+        clearInterval(interval);
+        angleLeftArm = 0;
+        angleRightArm = 0;
+        angleLeftLeg = 0;
+        angleRightLeg = 0;
+        angleHead = 0;
+        angleRobot = 0;
+
+    }
+
+    function initWebGL() {
+        /* Get the WebGL context */
+        gl = twgl.getWebGLContext(document.getElementById("webgl_canvas"));
+
+        /* Initialize the WebGL environment */
+        if (gl) {
+            gl.clearColor(0, 0, 0, 1);
+
+            gl.enable(gl.DEPTH_TEST);
+            gl.depthFunc(gl.LEQUAL);
+
+            /* Create the program */
+            programInfo = twgl.createProgramInfo(gl,
+                               ["vertex-shader", "fragment-shader"]);
+            gl.useProgram(programInfo.program);
+
+            /* Create the primitive */
+            twgl.setDefaults({ attribPrefix: 'a_' });
+            cube = primitives.createCubeBufferInfo(gl, 10); 
+            cylinder = primitives.createCylinderBufferInfo(gl, 3, 1, 24, 2);
+
+            /* Initialize the mouse and keys */
+            initMouseEvents();
+            initKeyEvents();
+
+            /* Clear the matrix stack */
+            matrixstack.clear();
+
+            /* Update the canvas content */
+            window.requestAnimationFrame(render);
+        }
+    }
+
+    function setupMatrices() {
+        /* Compute the current matrices */
+        var modelMatrix = matrixstack.top();
+        var modelViewMatrix = m4.multiply(viewMatrix, modelMatrix);
+        var normalMatrix = m4.inverse(m4.transpose(modelViewMatrix));
+        var modelViewProjMatrix = m4.multiply(projMatrix, modelViewMatrix);
+
+        /* Set up the uniforms */
+        uniforms.u_ModelViewMatrix = modelViewMatrix;
+        uniforms.u_NormalMatrix = normalMatrix;
+        uniforms.u_ModelViewProjMatrix = modelViewProjMatrix;
+    }
+
+//=================================
+    function drawBody() {
+        matrixstack.push();
+
+        /* Set up the model transformation */
+        matrixstack.multiply(m4.scaling([3, 5, 3]));
+        matrixstack.multiply(m4.translation([0, 5, 0]));
+
+        /* Set up the matrices */
+        setupMatrices();
+
+        /* Set the colour */
+        uniforms.u_Color = [0, 0, 1];
+
+        twgl.setUniforms(programInfo, uniforms);
+
+        /* Bind the vertex buffers */
+        twgl.setBuffersAndAttributes(gl, programInfo, cube);
+
+        /* Draw the vertex buffers as triangles */
+        twgl.drawBufferInfo(gl, cube);
+        
+        matrixstack.pop();
+    }
+
+    function drawHeadJoint() {
+        matrixstack.push();
+
+        /* Set up the model transformation */
+        matrixstack.multiply(m4.scaling([3, 3, 3]));
+        matrixstack.multiply(m4.translation([0, 5, 0]));
+
+        /* Set up the matrices */
+        setupMatrices();
+
+        /* Set the colour */
+        uniforms.u_Color = [1, 1, 1];
+
+        twgl.setUniforms(programInfo, uniforms);
+
+        /* Bind the vertex buffers */
+        twgl.setBuffersAndAttributes(gl, programInfo, cylinder);
+
+        /* Draw the vertex buffers as triangles */
+        twgl.drawBufferInfo(gl, cylinder);
+        
+        matrixstack.pop();
+    }
+
+    function drawArmJoint() {
+        matrixstack.push();
+
+        /* Set up the model transformation */
+        matrixstack.multiply(m4.rotationZ(90 * Math.PI / 180));
+        matrixstack.multiply(m4.scaling([2, 4, 2]));
+        matrixstack.multiply(m4.translation([0, 5, 0]));
+        
+        /* Set up the matrices */
+        setupMatrices();
+
+        /* Set the colour */
+        uniforms.u_Color = [1, 1, 1];
+
+        twgl.setUniforms(programInfo, uniforms);
+
+        /* Bind the vertex buffers */
+        twgl.setBuffersAndAttributes(gl, programInfo, cylinder);
+
+        /* Draw the vertex buffers as triangles */
+        twgl.drawBufferInfo(gl, cylinder);
+        
+        matrixstack.pop();
+    }
+
+    function drawLegJoint() {
+        matrixstack.push();
+
+        /* Set up the model transformation */
+        matrixstack.multiply(m4.rotationZ(90 * Math.PI / 180));
+        matrixstack.multiply(m4.scaling([1.5, 6, 1.5]));
+        matrixstack.multiply(m4.translation([0, 5, 0]));
+
+        /* Set up the matrices */
+        setupMatrices();
+
+        /* Set the colour */
+        uniforms.u_Color = [1, 1, 1];
+
+        twgl.setUniforms(programInfo, uniforms);
+
+        /* Bind the vertex buffers */
+        twgl.setBuffersAndAttributes(gl, programInfo, cylinder);
+
+        /* Draw the vertex buffers as triangles */
+        twgl.drawBufferInfo(gl, cylinder);
+        
+        matrixstack.pop();
+    }
+
+//=================================
+    function drawHead() {
+        matrixstack.push();
+
+        /* Set up the model transformation */
+        matrixstack.multiply(m4.scaling([2, 2, 2]));
+        matrixstack.multiply(m4.translation([0, 5, 0]));
+
+        /* Set up the matrices */
+        setupMatrices();
+
+        /* Set the colour */
+        uniforms.u_Color = [0, 0, 1];
+
+        twgl.setUniforms(programInfo, uniforms);
+
+        /* Bind the vertex buffers */
+        twgl.setBuffersAndAttributes(gl, programInfo, cube);
+
+        /* Draw the vertex buffers as triangles */
+        twgl.drawBufferInfo(gl, cube);
+        
+        matrixstack.pop();
+    }
+
+    function drawLeftEye() {
+        matrixstack.push();
+
+        /* Set up the model transformation */
+        matrixstack.multiply(m4.scaling([1, 1, 1]));
+        matrixstack.multiply(m4.translation([0, 5, 0]));
+
+        /* Set up the matrices */
+        setupMatrices();
+
+        /* Set the colour */
+        uniforms.u_Color = [1, 1, 0];
+
+        twgl.setUniforms(programInfo, uniforms);
+
+        /* Bind the vertex buffers */
+        twgl.setBuffersAndAttributes(gl, programInfo, cylinder);
+
+        /* Draw the vertex buffers as triangles */
+        twgl.drawBufferInfo(gl, cylinder);
+        
+        matrixstack.pop();
+    }  
+
+    function drawRightEye() {
+        matrixstack.push();
+
+        /* Set up the model transformation */
+        matrixstack.multiply(m4.scaling([1, 1, 1]));
+        matrixstack.multiply(m4.translation([0, 5, 0]));
+
+        /* Set up the matrices */
+        setupMatrices();
+
+        /* Set the colour */
+        uniforms.u_Color = [1, 1, 0];
+
+        twgl.setUniforms(programInfo, uniforms);
+
+        /* Bind the vertex buffers */
+        twgl.setBuffersAndAttributes(gl, programInfo, cylinder);
+
+        /* Draw the vertex buffers as triangles */
+        twgl.drawBufferInfo(gl, cylinder);
+        
+        matrixstack.pop();
+    }  
+
+    function drawMouth() {
+        matrixstack.push();
+
+        /* Set up the model transformation */
+        matrixstack.multiply(m4.scaling([1.5, 0.4, 0.2]));
+        matrixstack.multiply(m4.translation([0, 5, 0]));
+
+        /* Set up the matrices */
+        setupMatrices();
+
+        /* Set the colour */
+        uniforms.u_Color = [1, 1, 1];
+
+        twgl.setUniforms(programInfo, uniforms);
+
+        /* Bind the vertex buffers */
+        twgl.setBuffersAndAttributes(gl, programInfo, cube);
+
+        /* Draw the vertex buffers as triangles */
+        twgl.drawBufferInfo(gl, cube);
+        
+        matrixstack.pop();
+    }
+//=================================
+
+    function drawArm() {
+        matrixstack.push();
+
+        /* Set up the model transformation */
+        matrixstack.multiply(m4.scaling([1, 5, 1]));
+        matrixstack.multiply(m4.translation([0, 5, 0]));
+
+        /* Set up the matrices */
+        setupMatrices();
+
+        /* Set the colour */
+        uniforms.u_Color = [0, 0, 1];
+
+        twgl.setUniforms(programInfo, uniforms);
+
+        /* Bind the vertex buffers */
+        twgl.setBuffersAndAttributes(gl, programInfo, cube);
+
+        /* Draw the vertex buffers as triangles */
+        twgl.drawBufferInfo(gl, cube);
+        
+        matrixstack.pop();
+    }
+
+    function drawLeg() {
+        matrixstack.push();
+
+        /* Set up the model transformation */
+        matrixstack.multiply(m4.scaling([1.5, 5, 1.2]));
+        matrixstack.multiply(m4.translation([0, 5, 0]));
+
+        /* Set up the matrices */
+        setupMatrices();
+
+        /* Set the colour */
+        uniforms.u_Color = [0, 0, 1];
+
+        twgl.setUniforms(programInfo, uniforms);
+
+        /* Bind the vertex buffers */
+        twgl.setBuffersAndAttributes(gl, programInfo, cube);
+
+        /* Draw the vertex buffers as triangles */
+        twgl.drawBufferInfo(gl, cube);
+        
+        matrixstack.pop();
+    }
+
+    function render() {
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        /* Set up the perspective projection */
+        projMatrix = m4.perspective(90 * Math.PI / 180,
+                            gl.canvas.width / gl.canvas.height, 0.5, 200);
+
+        /* Set up the viewing transformation */
+        var lookAt = m4.lookAt(mouseInfo.eye,
+                               [mouseInfo.eye[0], mouseInfo.eye[1], 0],
+                               [0, 1, 0]);
+        viewMatrix = m4.multiply(m4.inverse(lookAt),
+                                 trackball.buildMatrix(mouseInfo.quat));
+
+//body starts =================================
+        /* To Body */
+        matrixstack.push();
+
+        /* Position the body */
+        matrixstack.multiply(m4.translation([0, 40, 0]));
+        matrixstack.multiply(m4.rotationY(angleRobot * Math.PI / 180));
+
+        /* Draw the body */
+        drawBody();
+
+//head starts =================================
+        /* To head joint */
+        matrixstack.push();
+
+        /* Position the head joint */
+        matrixstack.multiply(m4.translation([0, 38, 0]));
+        matrixstack.multiply(m4.rotationY(angleHead * Math.PI / 180));
+
+        /* Draw the head joint */
+        drawHeadJoint(); 
+
+        /* To head */
+        matrixstack.push();
+
+        /* Position the head */
+        matrixstack.multiply(m4.translation([0, 16, 0]));
+        
+        /* Draw the head */
+        drawHead(); 
+
+        /* To left eye */
+        matrixstack.push();
+
+        /* Position the left eye */
+        matrixstack.multiply(m4.translation([-5, 12, 5]));
+        matrixstack.multiply(m4.rotationX(90*Math.PI / 180));
+
+        /* Draw the left eye */
+        drawLeftEye(); 
+
+        /* From left eye to head */
+        matrixstack.pop();
+
+        /* To right eye */
+        matrixstack.push();
+
+        /* Position the right eye */
+        matrixstack.multiply(m4.translation([5, 12, 5]));
+        matrixstack.multiply(m4.rotationX(90*Math.PI / 180));
+
+        /* Draw the right eye */
+        drawRightEye(); 
+
+        /* From right eye to head */
+        matrixstack.pop();
+
+        /* To mouth */
+        matrixstack.push();
+
+        /* Position the mouth */
+        matrixstack.multiply(m4.translation([0, 6, 10]));
+        matrixstack.multiply(m4.rotationX(180*Math.PI / 180));
+
+        /* Draw the mouth */
+        drawMouth(); 
+
+        /* From mouth to head */
+        matrixstack.pop();
+
+        /* From head to head joint */
+        matrixstack.pop();
+
+        /* From head joint to body */
+        matrixstack.pop();
+//head end =================================
+
+
+//left arm starts =================================
+        /* To left arm joint */
+        matrixstack.push();
+
+        /* Position the left arm joint */
+        matrixstack.multiply(m4.translation([3, 40, 0]));
+        matrixstack.multiply(m4.rotationX(angleLeftArm * Math.PI / 180));
+        
+        /* Draw the left arm joint */
+        drawArmJoint(); 
+
+        /* To left arm */
+        matrixstack.push();
+
+        /* Position the left arm */
+        matrixstack.multiply(m4.translation([-27, 10, 0]));
+        matrixstack.multiply(m4.rotationX(180 * Math.PI / 180));
+        
+        /* Draw the left arm */
+        drawArm();   
+         
+        /* From left arm to left arm joint */
+        matrixstack.pop(); 
+
+        /* From left arm joint to body */
+        matrixstack.pop(); 
+
+//right arm starts =================================
+        /* To right arm joint */
+        matrixstack.push();
+
+        /* Position the right arm joint */
+        matrixstack.multiply(m4.translation([37, 40, 0]));
+        matrixstack.multiply(m4.rotationX(angleRightArm * Math.PI / 180));
+        
+        /* Draw the right arm joint */
+        drawArmJoint(); 
+
+        /* To right arm */
+        matrixstack.push();
+
+        /* Position the right arm */
+        matrixstack.multiply(m4.translation([-13, 10, 0]));
+        matrixstack.multiply(m4.rotationX(180 * Math.PI / 180));
+        
+        /* Draw the right arm */
+        drawArm();   
+         
+        /* From right arm to right arm joint */
+        matrixstack.pop(); 
+
+        /* From right arm joint to body */
+        matrixstack.pop();
+
+//left leg starts =================================
+        /* To left leg joint */
+        matrixstack.push();
+
+        /* Position the left leg joint */
+        matrixstack.multiply(m4.translation([20, -4, 0]));
+        matrixstack.multiply(m4.rotationX(angleLeftLeg * Math.PI / 180));
+
+        /* Draw the left leg joint */
+        drawLegJoint(); 
+
+        /* To head */
+        matrixstack.push();
+
+        /* Position the head */
+        matrixstack.multiply(m4.translation([-30, -4, 0]));
+        matrixstack.multiply(m4.rotationX(180 * Math.PI / 180));
+        
+        /* Draw the head */
+        drawLeg();   
+        
+        /* From left leg tp left leg joint */
+        matrixstack.pop(); 
+
+        /* From left leg joint to body */
+        matrixstack.pop();
+
+//right leg starts =================================
+        /* To right leg joint */
+        matrixstack.push();
+
+        /* Position the right leg joint */
+        matrixstack.multiply(m4.translation([40, -4, 0]));
+        matrixstack.multiply(m4.rotationX(angleRightLeg * Math.PI / 180));
+
+        /* Draw the right leg joint */
+        drawLegJoint(); 
+
+        /* To head */
+        matrixstack.push();
+
+        /* Position the head */
+        matrixstack.multiply(m4.translation([-30, -4, 0]));
+        matrixstack.multiply(m4.rotationX(180 * Math.PI / 180));
+        
+        /* Draw the head */
+        drawLeg();   
+        
+        /* From left leg tp left leg joint */
+        matrixstack.pop(); 
+
+        /* From right leg joint to body */
+        matrixstack.pop();
+
+        /* From body to initialized stack */
+        matrixstack.pop();
+
+        window.requestAnimationFrame(render);
+    }
+    </script>
+</head>
+<body onload="initWebGL()">
+    <div id="container">
+        <canvas id="webgl_canvas" width="640" height="480"></canvas>
+        <div id="instructions">
+            Use the , (comma) and . (period) keys to rotate the entire robot<br>
+            Use the w and e keys to rotate the head<br>
+            Use the a and s keys to rotate the left arm<br>
+            Use the d and f keys to rotate the right arm<br>
+            Use the z and x keys to rotate the left leg<br>
+            Use the c and v keys to rotate the right leg<br>
+            Use the spacebar key toggles the animation of the robot<br>
+            Use the r key to reset the robot position<br>
+        </div>
+    </div>
+</body>
+</html>
