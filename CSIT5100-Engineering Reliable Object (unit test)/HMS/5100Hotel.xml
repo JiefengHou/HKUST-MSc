@@ -1,0 +1,14 @@
+<Hotel name="201Hotel" noFloors="3" dataServiceChargePerDay="20">
+  <Floor no="1">
+    <Room no="1" capacity="8" type="Presidential" rate="3000"/>
+    <Room no="2" capacity="10" type="Presidential" rate="3500"/>
+  </Floor>
+  <Floor no="2">
+    <Room no="1" capacity="2" type="Executive" rate="1400"/>
+    <Room no="2" capacity="4" type="Executive" rate="2000"/>
+  </Floor>
+  <Floor no="3">
+    <Room no="1" capacity="2" type="Standard" rate="1100"/>
+    <Room no="2" capacity="4" type="Standard" rate="1500"/>
+  </Floor>
+</Hotel>
